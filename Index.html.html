@@ -1,0 +1,639 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no"/>
+<meta name="mobile-web-app-capable" content="yes"/>
+<meta name="apple-mobile-web-app-capable" content="yes"/>
+<title>Inventario · Scanner</title>
+<link rel="preconnect" href="https://fonts.googleapis.com"/>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=DM+Sans:wght@400;500;600&display=swap"/>
+<style>
+:root{--bg:#09090f;--s1:#111118;--s2:#1a1a24;--s3:#22222f;--bd:rgba(255,255,255,0.07);--bd2:rgba(255,255,255,0.13);--tx:#eeeef5;--mt:#6868a0;--ac:#6c63ff;--gr:#4ade80;--cy:#22d3ee;--am:#f59e0b;--rd:#f87171;}
+*{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent;}
+body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--tx);min-height:100vh;}
+.app{max-width:430px;margin:0 auto;min-height:100vh;display:flex;flex-direction:column;}
+
+/* SETUP SCREEN */
+#setupScreen{flex:1;display:flex;flex-direction:column;padding:40px 24px 24px;gap:20px;}
+.setup-logo{text-align:center;padding:20px 0;}
+.setup-logo h1{font-size:22px;font-weight:600;letter-spacing:-0.5px;}
+.setup-logo p{font-size:13px;color:var(--mt);margin-top:4px;font-family:'DM Mono',monospace;}
+.setup-card{background:var(--s1);border:1px solid var(--bd2);border-radius:16px;padding:20px;}
+.setup-card h3{font-size:14px;font-weight:600;margin-bottom:4px;}
+.setup-card p{font-size:12px;color:var(--mt);line-height:1.6;margin-bottom:14px;}
+.field-group{display:flex;flex-direction:column;gap:10px;}
+.field label{font-size:11px;color:var(--mt);display:block;margin-bottom:4px;font-family:'DM Mono',monospace;text-transform:uppercase;letter-spacing:0.06em;}
+.field input{width:100%;background:var(--s2);border:1px solid var(--bd2);border-radius:10px;padding:10px 14px;color:var(--tx);font-size:13px;font-family:'DM Mono',monospace;outline:none;}
+.field input:focus{border-color:var(--ac);}
+.field input::placeholder{color:var(--mt);}
+.btn-primary{width:100%;padding:14px;background:var(--ac);color:#fff;border:none;border-radius:12px;font-size:15px;font-weight:600;cursor:pointer;font-family:'DM Sans',sans-serif;transition:opacity 0.15s;}
+.btn-primary:active{opacity:0.85;}
+.btn-primary:disabled{opacity:0.4;cursor:not-allowed;}
+.setup-note{background:rgba(108,99,255,0.1);border:1px solid rgba(108,99,255,0.25);border-radius:10px;padding:12px 14px;font-size:12px;color:rgba(180,176,255,0.9);line-height:1.6;}
+.setup-note strong{color:#a5a0ff;}
+.setup-note code{font-family:'DM Mono',monospace;background:rgba(108,99,255,0.2);padding:1px 5px;border-radius:4px;font-size:11px;}
+
+/* MAIN APP */
+#mainApp{display:none;flex:1;flex-direction:column;}
+
+.header{padding:48px 18px 14px;background:var(--s1);border-bottom:1px solid var(--bd);}
+.hdr-row{display:flex;align-items:center;justify-content:space-between;margin-bottom:2px;}
+.hdr-row h1{font-size:12px;color:var(--mt);font-family:'DM Mono',monospace;letter-spacing:0.06em;}
+.live-dot{display:flex;align-items:center;gap:5px;font-size:11px;color:var(--gr);}
+.live-dot span{width:7px;height:7px;border-radius:50%;background:var(--gr);box-shadow:0 0 6px var(--gr);animation:blink 2s infinite;}
+@keyframes blink{0%,100%{opacity:1}50%{opacity:0.3}}
+.header h2{font-size:17px;font-weight:600;}
+.header-sub{font-size:11px;color:var(--mt);font-family:'DM Mono',monospace;margin-top:2px;}
+
+.stats{display:grid;grid-template-columns:repeat(4,1fr);gap:6px;padding:12px 14px;background:var(--s1);border-bottom:1px solid var(--bd);}
+.stat{background:var(--s2);border-radius:8px;padding:8px 4px;text-align:center;}
+.sv{font-size:20px;font-weight:600;font-family:'DM Mono',monospace;line-height:1;}
+.sl{font-size:10px;color:var(--mt);margin-top:3px;line-height:1.2;}
+.sv.gr{color:var(--gr)} .sv.cy{color:var(--cy)} .sv.am{color:var(--am)} .sv.mt{color:var(--mt)}
+
+.nav{display:flex;background:var(--s1);border-bottom:1px solid var(--bd);}
+.nb{flex:1;padding:11px 4px 9px;font-size:10px;font-weight:500;color:var(--mt);background:none;border:none;cursor:pointer;display:flex;flex-direction:column;align-items:center;gap:3px;transition:color 0.15s;}
+.nb svg{width:19px;height:19px;stroke:currentColor;fill:none;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round;}
+.nb.active{color:var(--ac);border-bottom:2px solid var(--ac);}
+
+.screen{display:none;flex:1;padding:14px;overflow-y:auto;}
+.screen.active{display:block;}
+
+/* SCAN */
+.cam-box{position:relative;border-radius:14px;overflow:hidden;background:#000;aspect-ratio:1;margin-bottom:12px;border:1px solid var(--bd2);}
+#preview{width:100%;height:100%;object-fit:cover;display:block;}
+.cam-overlay{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;pointer-events:none;}
+.cam-frame{width:64%;aspect-ratio:1;border:2px solid var(--ac);border-radius:8px;position:relative;}
+.cam-frame::before,.cam-frame::after{content:'';position:absolute;width:18px;height:18px;border-color:#fff;border-style:solid;}
+.cam-frame::before{top:-2px;left:-2px;border-width:3px 0 0 3px;border-radius:4px 0 0 0;}
+.cam-frame::after{bottom:-2px;right:-2px;border-width:0 3px 3px 0;border-radius:0 0 4px 0;}
+.scan-line{position:absolute;left:0;right:0;height:2px;background:linear-gradient(90deg,transparent,var(--ac),transparent);animation:sl 2s linear infinite;}
+@keyframes sl{0%{top:8%}100%{top:88%}}
+.cam-idle{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:10px;background:rgba(0,0,0,0.75);}
+.cam-idle svg{width:44px;height:44px;stroke:var(--mt);fill:none;stroke-width:1.5;}
+.cam-idle p{font-size:13px;color:var(--mt);text-align:center;line-height:1.5;}
+.manual-row{display:flex;gap:8px;margin-bottom:10px;}
+.manual-row input{flex:1;background:var(--s2);border:1px solid var(--bd2);border-radius:10px;padding:10px 12px;color:var(--tx);font-size:13px;font-family:'DM Mono',monospace;outline:none;}
+.manual-row input:focus{border-color:var(--ac);}
+.manual-row input::placeholder{color:var(--mt);}
+.manual-row button{padding:0 14px;background:var(--s2);border:1px solid var(--bd2);border-radius:10px;color:var(--ac);font-weight:600;cursor:pointer;font-size:14px;}
+.btn-cam{width:100%;padding:14px;border:none;border-radius:12px;font-size:14px;font-weight:600;cursor:pointer;font-family:'DM Sans',sans-serif;transition:all 0.15s;}
+.btn-cam.off{background:var(--ac);color:#fff;}
+.btn-cam.on{background:rgba(248,113,113,0.12);border:1.5px solid rgba(248,113,113,0.35);color:var(--rd);}
+.sync-row{display:flex;align-items:center;gap:8px;padding:8px 12px;background:var(--s2);border-radius:10px;margin-bottom:10px;font-size:12px;}
+.sync-row span{color:var(--mt);flex:1;}
+.sync-dot{width:7px;height:7px;border-radius:50%;flex-shrink:0;}
+.sync-dot.ok{background:var(--gr);box-shadow:0 0 5px var(--gr);}
+.sync-dot.err{background:var(--rd);}
+.sync-dot.wait{background:var(--am);animation:blink 1s infinite;}
+
+/* LOG */
+.log-list{display:flex;flex-direction:column;gap:7px;}
+.li{background:var(--s2);border:1px solid var(--bd);border-radius:12px;padding:11px 13px;display:flex;align-items:center;gap:10px;animation:in 0.2s ease;}
+@keyframes in{from{opacity:0;transform:translateY(-5px)}to{opacity:1;transform:translateY(0)}}
+.ld{width:9px;height:9px;border-radius:50%;flex-shrink:0;}
+.ld.gr{background:var(--gr);box-shadow:0 0 5px var(--gr);}
+.ld.am{background:var(--am);box-shadow:0 0 5px var(--am);}
+.ld.cy{background:var(--cy);box-shadow:0 0 5px var(--cy);}
+.ld.rd{background:var(--rd);box-shadow:0 0 5px var(--rd);}
+.li-info{flex:1;min-width:0;}
+.li-serie{font-family:'DM Mono',monospace;font-size:13px;font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.li-status{font-size:11px;color:var(--mt);margin-top:1px;}
+.li-cloud{font-size:16px;flex-shrink:0;}
+.li-time{font-family:'DM Mono',monospace;font-size:11px;color:var(--mt);flex-shrink:0;}
+
+/* REPORT */
+.rsum{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:16px;}
+.rc{background:var(--s2);border:1px solid var(--bd);border-radius:12px;padding:14px;}
+.rn{font-size:26px;font-weight:600;font-family:'DM Mono',monospace;line-height:1;}
+.rl{font-size:11px;color:var(--mt);margin-top:4px;}
+.rs{font-size:10px;margin-top:2px;font-family:'DM Mono',monospace;}
+.stabs{display:flex;gap:7px;margin-bottom:12px;overflow-x:auto;padding-bottom:2px;scrollbar-width:none;}
+.stabs::-webkit-scrollbar{display:none;}
+.stab{padding:5px 12px;border-radius:20px;font-size:11px;font-weight:500;cursor:pointer;border:1px solid var(--bd2);color:var(--mt);background:none;white-space:nowrap;transition:all 0.15s;}
+.stab.active{background:var(--ac);border-color:var(--ac);color:#fff;}
+.rcards{background:var(--s2);border:1px solid var(--bd);border-radius:12px;overflow:hidden;}
+.rrow{display:flex;align-items:center;padding:9px 13px;border-bottom:1px solid var(--bd);gap:8px;}
+.rrow:last-child{border-bottom:none;}
+.rserie{font-family:'DM Mono',monospace;font-size:12px;flex:1;}
+.rbadge{font-size:10px;font-weight:600;padding:2px 7px;border-radius:4px;text-transform:uppercase;letter-spacing:0.05em;flex-shrink:0;}
+.bk{background:rgba(74,222,128,0.1);color:var(--gr);border:1px solid rgba(74,222,128,0.2);}
+.bg{background:rgba(248,113,113,0.1);color:var(--rd);border:1px solid rgba(248,113,113,0.2);}
+.bn{background:rgba(34,211,238,0.1);color:var(--cy);border:1px solid rgba(34,211,238,0.2);}
+.bp{background:rgba(104,104,160,0.12);color:var(--mt);border:1px solid rgba(104,104,160,0.15);}
+.ba{background:rgba(245,158,11,0.1);color:var(--am);border:1px solid rgba(245,158,11,0.2);}
+
+.btnrow{margin-top:16px;display:flex;flex-direction:column;gap:8px;}
+.bte{padding:12px;background:var(--s2);border:1px solid var(--bd2);border-radius:12px;color:var(--tx);font-size:13px;font-weight:500;cursor:pointer;font-family:'DM Sans',sans-serif;display:flex;align-items:center;justify-content:center;gap:7px;transition:border-color 0.15s;}
+.bte:hover{border-color:var(--ac);}
+.bte svg{width:16px;height:16px;stroke:currentColor;fill:none;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round;}
+.btclose{padding:12px;background:rgba(248,113,113,0.08);border:1px solid rgba(248,113,113,0.25);border-radius:12px;color:var(--rd);font-size:13px;font-weight:500;cursor:pointer;font-family:'DM Sans',sans-serif;}
+
+.empty{text-align:center;padding:36px 20px;color:var(--mt);}
+.empty svg{width:44px;height:44px;stroke:var(--mt);fill:none;stroke-width:1.5;margin-bottom:10px;}
+.empty p{font-size:13px;line-height:1.6;}
+
+/* TOAST */
+.toast{position:fixed;top:56px;left:50%;transform:translateX(-50%);min-width:260px;max-width:340px;padding:11px 16px;border-radius:12px;font-size:13px;font-weight:500;text-align:center;z-index:999;pointer-events:none;opacity:0;transition:opacity 0.2s;border:1px solid;}
+.toast.show{opacity:1;}
+.toast.ok{background:#0a2016;border-color:var(--gr);color:var(--gr);}
+.toast.am{background:#1e1408;border-color:var(--am);color:var(--am);}
+.toast.rd{background:#1e0a0a;border-color:var(--rd);color:var(--rd);}
+.toast.cy{background:#081820;border-color:var(--cy);color:var(--cy);}
+</style>
+</head>
+<body>
+<div class="app">
+
+<!-- ═══ SETUP SCREEN ═══ -->
+<div id="setupScreen">
+  <div class="setup-logo">
+    <h1>Inventario Scanner</h1>
+    <p>SKU 10000532 · TV LG 65UT7300PSA</p>
+  </div>
+
+  <div class="setup-note">
+    <strong>Pasos rápidos para configurar Firebase (5 min):</strong><br/><br/>
+    1. Ve a <code>console.firebase.google.com</code><br/>
+    2. Crea proyecto → <strong>Agregar app Web</strong><br/>
+    3. Ve a <strong>Firestore Database</strong> → Crear base de datos → Modo prueba<br/>
+    4. Copia los datos del <code>firebaseConfig</code> y pégalos abajo<br/>
+    5. En Reglas de Firestore pega: <code>allow read, write: if true;</code>
+  </div>
+
+  <div class="setup-card">
+    <h3>Configuración Firebase</h3>
+    <p>Ingresa los datos de tu proyecto. Se guardan en este dispositivo.</p>
+    <div class="field-group">
+      <div class="field">
+        <label>API Key</label>
+        <input id="fbApiKey" placeholder="AIzaSy..."/>
+      </div>
+      <div class="field">
+        <label>Auth Domain</label>
+        <input id="fbAuthDomain" placeholder="mi-proyecto.firebaseapp.com"/>
+      </div>
+      <div class="field">
+        <label>Project ID</label>
+        <input id="fbProjectId" placeholder="mi-proyecto"/>
+      </div>
+    </div>
+  </div>
+
+  <button class="btn-primary" id="btnConnect" onclick="connectFirebase()">
+    Conectar y comenzar
+  </button>
+
+  <button class="btn-primary" style="background:var(--s2);border:1px solid var(--bd2);color:var(--mt)" onclick="startOffline()">
+    Continuar sin Firebase (solo local)
+  </button>
+</div>
+
+<!-- ═══ MAIN APP ═══ -->
+<div id="mainApp">
+  <div class="header">
+    <div class="hdr-row">
+      <h1>SKU · 10000532</h1>
+      <div class="live-dot" id="liveStatus">
+        <span></span><span id="liveLabel">Conectando...</span>
+      </div>
+    </div>
+    <h2>TV LG 65UT7300PSA</h2>
+    <div class="header-sub" id="sesInfo">Sesión: <span id="sesId">--</span></div>
+  </div>
+
+  <div class="stats">
+    <div class="stat"><div class="sv gr" id="stC">0</div><div class="sl">Confirmadas</div></div>
+    <div class="stat"><div class="sv cy" id="stN">0</div><div class="sl">Nuevas</div></div>
+    <div class="stat"><div class="sv am" id="stP">12</div><div class="sl">Pendientes</div></div>
+    <div class="stat"><div class="sv mt" id="stT">0</div><div class="sl">Escaneados</div></div>
+  </div>
+
+  <div class="nav">
+    <button class="nb active" onclick="showS('scan',this)">
+      <svg viewBox="0 0 24 24"><path d="M3 7V5a2 2 0 012-2h2M17 3h2a2 2 0 012 2v2M21 17v2a2 2 0 01-2 2h-2M7 21H5a2 2 0 01-2-2v-2"/><rect x="9" y="9" width="6" height="6" rx="1"/></svg>
+      Escanear
+    </button>
+    <button class="nb" onclick="showS('log',this)">
+      <svg viewBox="0 0 24 24"><path d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2"/><rect x="9" y="3" width="6" height="4" rx="2"/><line x1="9" y1="12" x2="15" y2="12"/><line x1="9" y1="16" x2="12" y2="16"/></svg>
+      Registro
+    </button>
+    <button class="nb" onclick="showS('report',this)">
+      <svg viewBox="0 0 24 24"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg>
+      Reporte
+    </button>
+  </div>
+
+  <!-- SCAN -->
+  <div class="screen active" id="screen-scan">
+    <div class="cam-box">
+      <video id="preview" autoplay playsinline muted></video>
+      <div class="cam-overlay" id="camOverlay" style="display:none">
+        <div class="cam-frame"><div class="scan-line"></div></div>
+      </div>
+      <div class="cam-idle" id="camIdle">
+        <svg viewBox="0 0 24 24"><path d="M3 7V5a2 2 0 012-2h2M17 3h2a2 2 0 012 2v2M21 17v2a2 2 0 01-2 2h-2M7 21H5a2 2 0 01-2-2v-2"/><rect x="9" y="9" width="6" height="6"/></svg>
+        <p>Toca "Activar cámara"<br/>para iniciar escaneo</p>
+      </div>
+    </div>
+
+    <div id="syncRow" class="sync-row">
+      <div class="sync-dot ok" id="syncDot"></div>
+      <span id="syncLabel">Esperando escaneos...</span>
+    </div>
+
+    <div class="manual-row">
+      <input type="text" id="mInput" placeholder="Serie manual..." maxlength="20" autocomplete="off" autocorrect="off" autocapitalize="characters" spellcheck="false"/>
+      <button onclick="processManual()">OK</button>
+    </div>
+    <button class="btn-cam off" id="btnCam" onclick="toggleCam()">
+      <span id="btnCamTxt">Activar cámara</span>
+    </button>
+  </div>
+
+  <!-- LOG -->
+  <div class="screen" id="screen-log">
+    <div class="empty" id="logEmpty">
+      <svg viewBox="0 0 24 24"><path d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2"/><rect x="9" y="3" width="6" height="4" rx="2"/></svg>
+      <p>Sin escaneos aún.<br/>Ve a la pestaña Escanear.</p>
+    </div>
+    <div class="log-list" id="logList"></div>
+  </div>
+
+  <!-- REPORT -->
+  <div class="screen" id="screen-report">
+    <div class="rsum">
+      <div class="rc"><div class="rn gr" id="rC">0</div><div class="rl">Confirmadas</div><div class="rs" style="color:var(--gr)">en bodega ✓</div></div>
+      <div class="rc"><div class="rn cy" id="rN">0</div><div class="rl">Nuevas</div><div class="rs" style="color:var(--cy)">no en sistema</div></div>
+      <div class="rc"><div class="rn am" id="rP">12</div><div class="rl">Pendientes</div><div class="rs" style="color:var(--am)">sin verificar</div></div>
+      <div class="rc"><div class="rn rd" id="rF">0</div><div class="rl">Fantasmas</div><div class="rs" style="color:var(--rd)">al cerrar sesión</div></div>
+    </div>
+    <div class="stabs">
+      <button class="stab active" onclick="filterR('all',this)">Todas</button>
+      <button class="stab" onclick="filterR('confirmada',this)">Confirmadas</button>
+      <button class="stab" onclick="filterR('encontrada_nueva',this)">Nuevas</button>
+      <button class="stab" onclick="filterR('atención',this)">Atención</button>
+      <button class="stab" onclick="filterR('pendiente',this)">Pendientes</button>
+      <button class="stab" onclick="filterR('fantasma',this)">Fantasmas</button>
+    </div>
+    <div class="rcards" id="rList"></div>
+    <div class="btnrow">
+      <button class="bte" onclick="exportCSV()">
+        <svg viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+        Exportar CSV
+      </button>
+      <button class="bte" onclick="copyFirebaseURL()">
+        <svg viewBox="0 0 24 24"><path d="M18 13v6a2 2 0 01-2 2H5a2 2 0 01-2-2V8a2 2 0 012-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>
+        Ver en Firebase Console
+      </button>
+      <button class="btclose" onclick="closeSession()">Cerrar sesión · marcar fantasmas</button>
+    </div>
+  </div>
+</div><!-- /mainApp -->
+
+</div><!-- /app -->
+<div class="toast" id="toast"></div>
+
+<script type="module">
+// ─── FIREBASE SDK ────────────────────────────────────────────────────
+import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js';
+import { getFirestore, doc, setDoc, updateDoc, collection, serverTimestamp, onSnapshot, getDoc }
+  from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js';
+
+// ─── SERIES DATA ─────────────────────────────────────────────────────
+const SERIES = {"407TOAG2P952":"DISPONIBLE","407TOEF2P396":"DESPACHADO","407TOEF2Q436":"DESPACHADO","407TOGE2P415":"DESPACHADO","407TOTV2Q841":"DESPACHADO","408TOHT11777":"DESPACHADO","408TOJK34596":"DESPACHADO","408TOQN11612":"DESPACHADO","408TORS34550":"DESPACHADO","408TORS44366":"DESPACHADO","408TORS5E974":"DESPACHADO","408TORS5E998":"DESPACHADO","408TORS5F038":"DESPACHADO","408TORS5F110":"DESPACHADO","408TORS5F158":"DESPACHADO","408TOSY0K382":"DESPACHADO","408TOSY0K646":"DESPACHADO","408TOSY34222":"DESPACHADO","408TOSY34558":"DESPACHADO","408TOSY34606":"DESPACHADO","408TOSY44158":"DESPACHADO","408TOSY44830":"DESPACHADO","408TOSY5E838":"DESPACHADO","408TOSY5E982":"DESPACHADO","408TOSY5F022":"DESPACHADO","408TOSY5F046":"DESPACHADO","408TOSY5F070":"DESPACHADO","408TOSY5F142":"DESPACHADO","408TOSY5F166":"DESPACHADO","408TOTV11641":"DESPACHADO","408TOTV34225":"DESPACHADO","408TOTV5E865":"DESPACHADO","408TOTV5E937":"DESPACHADO","408TOTV5E985":"DESPACHADO","408TOTV5F001":"DESPACHADO","408TOTV5F025":"DESPACHADO","408TOTV5F097":"DESPACHADO","408TOTV5F145":"DESPACHADO","408TOTV5F169":"DESPACHADO","408TOUH5E846":"DESPACHADO","408TOUH5E870":"DESPACHADO","408TOUH5E894":"DESPACHADO","408TOUH5E942":"DESPACHADO","408TOUH5E990":"DESPACHADO","408TOUH5F006":"DESPACHADO","408TOUH5F030":"DESPACHADO","408TOUH5F054":"DESPACHADO","408TOUH5F102":"DESPACHADO","408TOUH5F150":"DESPACHADO","408TOVC44367":"DESPACHADO","408TOVC5E879":"DESPACHADO","408TOVC5E927":"DESPACHADO","408TOVC5E951":"DESPACHADO","408TOVC5E975":"DESPACHADO","408TOVC5E999":"DESPACHADO","408TOVC5F063":"DESPACHADO","408TOVC5F159":"DESPACHADO","408TOWR11241":"DESPACHADO","408TOWR44361":"DESPACHADO","408TOWR5E849":"DESPACHADO","408TOWR5E921":"DESPACHADO","408TOWR5E945":"DESPACHADO","408TOWR5E993":"DESPACHADO","408TOWR5F009":"DESPACHADO","408TOWR5F105":"DESPACHADO","408TOWR5F153":"DESPACHADO","408TOXA34690":"DESPACHADO","408TOXA44146":"DESPACHADO","408TOXA44386":"DESPACHADO","408TOXA5E994":"DESPACHADO","408TOXA5F010":"DESPACHADO","408TOXA5F034":"DESPACHADO","408TOXA5F106":"DESPACHADO","408TOXA5F154":"DESPACHADO","408TOYZ0K234":"DESPACHADO","408TOYZ11706":"DESPACHADO","408TOYZ35154":"DESPACHADO","408TOYZ5E882":"DESPACHADO","408TOYZ5E930":"DESPACHADO","408TOYZ5E978":"DESPACHADO","408TOYZ5F018":"DESPACHADO","408TOYZ5F042":"DESPACHADO","408TOYZ5F066":"DESPACHADO","408TOYZ5F162":"DESPACHADO","408TOZU0J741":"DESPACHADO","408TOZU0K189":"DESPACHADO","408TOZU5E861":"DESPACHADO","408TOZU5E885":"DESPACHADO","408TOZU5E933":"DESPACHADO","408TOZU5F021":"DESPACHADO","408TOZU5F045":"DESPACHADO","408TOZU5F069":"DESPACHADO","408TOZU5F141":"DESPACHADO","408TOZU5F165":"DESPACHADO","408TOZUOK381":"DESPACHADO","409TOAG10168":"DESPACHADO","409TOAG2T688":"DESPACHADO","409TOBL11205":"DESPACHADO","409TODX11242":"DESPACHADO","409TODX2V650":"DESPACHADO","409TODX2V698":"DESPACHADO","409TOEF10164":"DESPACHADO","409TOEF2U756":"DESPACHADO","409TOFJ0Z779":"DESPACHADO","409TOFJ11251":"DESPACHADO","409TOGE0Z743":"DESPACHADO","409TOGE0Z959":"DESPACHADO","409TOGE10063":"DESPACHADO","409TOHT0Z953":"DESPACHADO","409TOHT10273":"DESPACHADO","409TOJK0Z972":"DESPACHADO","409TOJK10172":"DESPACHADO","409TOJK11204":"DESPACHADO","409TOJK2T356":"DESPACHADO","409TOJK2T644":"DESPACHADO","409TOKW10045":"DESPACHADO","409TOMP2T683":"DESPACHADO","409TOMP2V699":"DESPACHADO","409TONB11247":"DESPACHADO","409TOPM10272":"DESPACHADO","409TOPM2V640":"DESPACHADO","409TOPM2V688":"DESPACHADO","409TORS10054":"DESPACHADO","409TORS2T646":"DESPACHADO","409TOSY2T366":"DESPACHADO","409TOTV2U369":"DESPACHADO","409TOTV2V697":"DESPACHADO","409TOUH2T686":"DESPACHADO","409TOVC0Z759":"DESPACHADO","409TOVC0Z975":"DESPACHADO","409TOVC2T311":"DESPACHADO","409TOVC2T647":"DESPACHADO","409TOVC2V687":"DESPACHADO","409TOWR10193":"DESPACHADO","409TOWR10241":"DESPACHADO","409TOWR2T641":"DESPACHADO","409TOWR2U161":"DESPACHADO","409TOXA0Z754":"DESPACHADO","409TOXA11250":"DESPACHADO","409TOXA2T330":"DESPACHADO","409TOXA2T354":"DESPACHADO","409TOXA2T642":"DESPACHADO","409TOXA2U162":"DESPACHADO","409TOXA2U762":"DESPACHADO","409TOYZ0Z978":"DESPACHADO","410TOAG0A656":"DESPACHADO","410TOAG0A680":"DESPACHADO","410TOAG1S504":"DESPACHADO","410TOAG1V320":"DESPACHADO","410TOBL1S509":"DESPACHADO","410TOBL1U765":"DESPACHADO","410TOCD0A667":"DESPACHADO","410TOCD1S131":"DESPACHADO","410TOCD1S635":"DESPACHADO","410TOCD1V307":"DESPACHADO","410TODX1S378":"DESPACHADO","410TODX1T466":"DESPACHADO","410TOEF1S596":"DESPACHADO","410TOEF1T924":"DESPACHADO","410TOFJ0M851":"DESPACHADO","410TOFJ1S123":"DESPACHADO","410TOGE1S351":"DESPACHADO","410TOGE1S519":"DESPACHADO","410TOGE1S543":"DESPACHADO","410TOHT1S129":"DESPACHADO","410TOHT1S585":"DESPACHADO","410TOJK0A876":"DESPACHADO","410TOJK1U692":"DESPACHADO","410TOKW0A701":"DESPACHADO","410TOKW1S501":"DESPACHADO","410TOKW1S621":"DESPACHADO","410TOKW1V293":"DESPACHADO","410TOLQ1S472":"DESPACHADO","410TOLQ1S592":"DESPACHADO","410TOLQ1U128":"DESPACHADO","410TOMP1V291":"DESPACHADO","410TONB0A679":"DESPACHADO","410TONB1S623":"DESPACHADO","410TONB1T471":"DESPACHADO","410TOPM0A664":"DESPACHADO","410TOPM0A880":"DESPACHADO","410TOPM1S128":"DESPACHADO","410TOPM1V208":"DESPACHADO","410TOQN0A764":"DESPACHADO","410TOQN1S540":"DESPACHADO","410TOQN1U964":"DESPACHADO","410TORS1R910":"DESPACHADO","410TORS1S126":"DESPACHADO","410TOSY1S590":"DESPACHADO","410TOTV0A913":"DESPACHADO","410TOTV1T465":"DESPACHADO","410TOUH1S598":"DESPACHADO","410TOUH1U686":"DESPACHADO","410TOVC0A663":"DESPACHADO","410TOVC0A687":"DESPACHADO","410TOVC0A711":"DESPACHADO","410TOVC1S127":"DESPACHADO","410TOVC1U911":"DESPACHADO","410TOWR0A657":"DESPACHADO","410TOWR1S505":"DESPACHADO","410TOWR1U089":"DESPACHADO","410TOWR1V321":"DESPACHADO","410TOXA1S122":"DESPACHADO","410TOXA1U906":"DESPACHADO","410TOXA1V298":"DESPACHADO","410TOYZ0B386":"DESPACHADO","410TOYZ1S130":"DESPACHADO","410TOZU1S061":"DESPACHADO","410TOZU1S541":"DESPACHADO","410TOZU1S589":"DESPACHADO","410TOBL1U669":"DESPACHADO","410TOGE1S303":"DESPACHADO","410TOGE1T535":"DESPACHADO","410TOHT1T745":"DESPACHADO","410TOJK1U740":"DESPACHADO","410TONB1U591":"DESPACHADO","410TOQN1U676":"DESPACHADO","410TOQN1U868":"DESPACHADO","410TOVC1U863":"DESPACHADO","410TOYZ1T746":"DESPACHADO","411TOAG07184":"DESPACHADO","411TOAG19448":"DESPACHADO","411TOAG19544":"DESPACHADO","411TOAG19568":"DESPACHADO","411TOAG19880":"DESPACHADO","411TOBL19573":"DESPACHADO","411TOBL1A125":"DESPACHADO","411TOCD07531":"DESPACHADO","411TOCD19459":"DESPACHADO","411TOCD19531":"DESPACHADO","411TOCD1A131":"DESPACHADO","411TODX07514":"DESPACHADO","411TODX19442":"DESPACHADO","411TODX19466":"DESPACHADO","411TODX19562":"DESPACHADO","411TOFJ07451":"DESPACHADO","411TOFJ25979":"DESPACHADO","411TOFJ26627":"DESPACHADO","411TOGE07535":"DESPACHADO","411TOGE19559":"DESPACHADO","411TOHT07289":"DESPACHADO","411TOHT07313":"DESPACHADO","411TOHT19529":"DESPACHADO","411TOHT19817":"DESPACHADO","411TOJK19524":"DESPACHADO","411TOJK19572":"DESPACHADO","411TOJK19860":"DESPACHADO","411TOJK19908":"DESPACHADO","411TOKW19805":"DESPACHADO","411TOLQ07248":"DESPACHADO","411TOLQ07512":"DESPACHADO","411TOLQ19560":"DESPACHADO","411TOLQ19800":"DESPACHADO","411TOLQ19872":"DESPACHADO","411TOLQ19944":"DESPACHADO","411TOLQ1A112":"DESPACHADO","411TOLQ25752":"DESPACHADO","411TOMP07539":"DESPACHADO","411TOMP1A139":"DESPACHADO","411TONB07303":"DESPACHADO","411TONB19879":"DESPACHADO","411TOPM07216":"DESPACHADO","411TOPM26392":"DESPACHADO","411TOQN07220":"DESPACHADO","411TOQN1A132":"DESPACHADO","411TORS19550":"DESPACHADO","411TOSY1A134":"DESPACHADO","411TOSY26782":"DESPACHADO","411TOTV07513":"DESPACHADO","411TOTV07537":"DESPACHADO","411TOTV19801":"DESPACHADO","411TOUH07302":"DESPACHADO","411TOUH19806":"DESPACHADO","411TOUH26622":"DESPACHADO","411TOVC07311":"DESPACHADO","411TOVC07551":"DESPACHADO","411TOVC19791":"DESPACHADO","411TOWR07185":"DESPACHADO","411TOWR07305":"DESPACHADO","411TOWR19569":"DESPACHADO","411TOWR19881":"DESPACHADO","411TOWR26001":"DESPACHADO","411TOXA07186":"DESPACHADO","411TOXA25666":"DESPACHADO","411TOXA26650":"DESPACHADO","411TOYZ19818":"DESPACHADO","411TOZU19437":"DESPACHADO","411TOZU19581":"DESPACHADO","412TOAG2Z648":"DESPACHADO","412TOAG31480":"DESPACHADO","412TOAG31936":"DESPACHADO","412TOAG32392":"DESPACHADO","412TOBL1Y917":"DESPACHADO","412TOBL2X269":"DESPACHADO","412TOBL2X557":"DESPACHADO","412TOBL31485":"DESPACHADO","412TOBL31509":"DESPACHADO","412TOBL32469":"DESPACHADO","412TOCD1Z267":"DESPACHADO","412TOCD2Y643":"DESPACHADO","412TOCD31275":"DESPACHADO","412TOCD31947":"DESPACHADO","412TODX32482":"DESPACHADO","412TOEF2X356":"DESPACHADO","412TOEF2Y148":"DESPACHADO","412TOEF30300":"DESPACHADO","412TOEF32124":"DESPACHADO","412TOFJ1Z139":"DESPACHADO","412TOFJ2X939":"DESPACHADO","412TOFJ2Y635":"DESPACHADO","412TOFJ30427":"DESPACHADO","412TOGE2Y551":"DESPACHADO","412TOGE31903":"DESPACHADO","412TOGE31951":"DESPACHADO","412TOGE32383":"DESPACHADO","412TOHT0K505":"DESPACHADO","412TOHT2X321":"DESPACHADO","412TOHT2Z633":"DESPACHADO","412TOHT32113":"DESPACHADO","412TOJK2Y636":"DESPACHADO","412TOJK31700":"DESPACHADO","412TOKW32389":"DESPACHADO","412TOKW32485":"DESPACHADO","412TOLQ31952":"DESPACHADO","412TOLQ32384":"DESPACHADO","412TOMP2X475":"DESPACHADO","412TOMP32483":"DESPACHADO","412TONB0K495":"DESPACHADO","412TONB2X287":"DESPACHADO","412TONB2X959":"DESPACHADO","412TONB31935":"DESPACHADO","412TONB32103":"DESPACHADO","412TOPM32040":"DESPACHADO","412TOQN0K868":"DESPACHADO","412TOQN0K892":"DESPACHADO","412TOQN2X348":"DESPACHADO","412TOQN2Y740":"DESPACHADO","412TOQN30028":"DESPACHADO","412TOQN32308":"DESPACHADO","412TOQN32380":"DESPACHADO","412TORS0K502":"DESPACHADO","412TORS2X270":"DESPACHADO","412TORS2X294":"DESPACHADO","412TORS2Y638":"DESPACHADO","412TORS2Y734":"DESPACHADO","412TORS30118":"DESPACHADO","412TORS31486":"DESPACHADO","412TORS31966":"DESPACHADO","412TORS32134":"DESPACHADO","412TOSY2X254":"DESPACHADO","412TOSY2Z854":"DESPACHADO","412TOSY31878":"DESPACHADO","412TOSY32382":"DESPACHADO","412TOTV2Y169":"DESPACHADO","412TOTV30465":"DESPACHADO","412TOUH0K758":"DESPACHADO","412TOUH1Z278":"DESPACHADO","412TOUH2X286":"DESPACHADO","412TOUH2Y438":"DESPACHADO","412TOVC2Y615":"DESPACHADO","412TOVC31271":"DESPACHADO","412TOVC31919":"DESPACHADO","412TOVC32135":"DESPACHADO","412TOVC32399":"DESPACHADO","412TOWR0K473":"DESPACHADO","412TOWR2X265":"DESPACHADO","412TOWR2X937":"DESPACHADO","412TOWR2X961":"DESPACHADO","412TOWR2Y249":"DESPACHADO","412TOWR2Z241":"DESPACHADO","412TOWR31937":"DESPACHADO","412TOXA1Z138":"DESPACHADO","412TOXA2X266":"DESPACHADO","412TOXA30114":"DESPACHADO","412TOXA32322":"DESPACHADO","412TOXA32394":"DESPACHADO","412TOYZ0K890":"DESPACHADO","412TOYZ1Y946":"DESPACHADO","412TOYZ1Z290":"DESPACHADO","412TOYZ2Y618":"DESPACHADO","412TOYZ2Y642":"DESPACHADO","412TOZU0K101":"DESPACHADO","412TOZU0K869":"DESPACHADO","412TOZU2Z613":"DESPACHADO","412TOZU30317":"DESPACHADO","412TOZU31493":"DESPACHADO","412TOZU32381":"DESPACHADO","412TOZY2X374":"DESPACHADO","504TOMP3M803":"DISPONIBLE","504TOBL3M813":"DISPONIBLE","504TODX3M802":"DISPONIBLE","504TOHT3M841":"DISPONIBLE","504TOJK3M836":"DISPONIBLE","504TOKW3M709":"DISPONIBLE","504TOPM3M696":"DISPONIBLE","504TORS3M814":"DISPONIBLE","504TORS3M838":"DISPONIBLE","504TOTV3M705":"DISPONIBLE","504TOTV3M777":"DISPONIBLE"};
+const DISPONIBLES = Object.fromEntries(Object.entries(SERIES).filter(([,v])=>v==='DISPONIBLE'));
+
+// ─── APP STATE ───────────────────────────────────────────────────────
+let db = null, fbProjectId = null, offline = false;
+let sessionId = 'SES-' + Date.now();
+let sessionStart = new Date();
+let isScanning = false, stream = null, scanInterval = null;
+let sessionClosed = false;
+let scanned = {};   // serie -> {estado_fisico, estado_sistema, ts, timeStr}
+let currentFilter = 'all';
+
+// ─── SETUP ───────────────────────────────────────────────────────────
+window.connectFirebase = async function() {
+  const apiKey = document.getElementById('fbApiKey').value.trim();
+  const authDomain = document.getElementById('fbAuthDomain').value.trim();
+  const projectId = document.getElementById('fbProjectId').value.trim();
+  if (!apiKey || !projectId) { toast('Completa API Key y Project ID', 'rd'); return; }
+
+  try {
+    document.getElementById('btnConnect').disabled = true;
+    document.getElementById('btnConnect').textContent = 'Conectando...';
+    const app = initializeApp({ apiKey, authDomain: authDomain || projectId+'.firebaseapp.com', projectId });
+    db = getFirestore(app);
+    fbProjectId = projectId;
+    // Test write
+    await setDoc(doc(db, 'sesiones', sessionId), {
+      sku: '10000532', producto: 'TV LG 65UT7300PSA',
+      fecha_inicio: new Date().toISOString(), estado: 'abierta',
+      total_confirmadas: 0, total_nuevas: 0, total_pendientes: 12, total_fantasmas: 0
+    });
+    launchApp(false);
+  } catch(e) {
+    document.getElementById('btnConnect').disabled = false;
+    document.getElementById('btnConnect').textContent = 'Conectar y comenzar';
+    toast('Error Firebase: ' + e.message, 'rd');
+  }
+};
+
+window.startOffline = function() { offline = true; launchApp(true); };
+
+function launchApp(isOffline) {
+  document.getElementById('setupScreen').style.display = 'none';
+  document.getElementById('mainApp').style.display = 'flex';
+  document.getElementById('sesId').textContent = sessionId;
+  const liveLabel = document.getElementById('liveLabel');
+  const liveDot = document.querySelector('.live-dot span');
+  if (isOffline) {
+    liveLabel.textContent = 'Solo local';
+    liveDot.style.background = 'var(--am)';
+    liveDot.style.boxShadow = '0 0 6px var(--am)';
+  } else {
+    liveLabel.textContent = 'Firebase ✓';
+  }
+  renderReport('all');
+}
+
+// ─── NAV ─────────────────────────────────────────────────────────────
+window.showS = function(id, btn) {
+  document.querySelectorAll('.screen').forEach(s=>s.classList.remove('active'));
+  document.querySelectorAll('.nb').forEach(b=>b.classList.remove('active'));
+  document.getElementById('screen-'+id).classList.add('active');
+  btn.classList.add('active');
+  if (id==='report') renderReport(currentFilter);
+};
+
+// ─── CAMERA ──────────────────────────────────────────────────────────
+window.toggleCam = async function() { isScanning ? stopCam() : await startCam(); };
+
+async function startCam() {
+  try {
+    stream = await navigator.mediaDevices.getUserMedia({
+      video: { facingMode: 'environment', width:{ideal:1280}, height:{ideal:720} }
+    });
+    const v = document.getElementById('preview');
+    v.srcObject = stream; v.play();
+    document.getElementById('camIdle').style.display = 'none';
+    document.getElementById('camOverlay').style.display = 'flex';
+    document.getElementById('btnCamTxt').textContent = 'Detener escaneo';
+    document.getElementById('btnCam').className = 'btn-cam on';
+    isScanning = true;
+    startDetection();
+  } catch(e) { toast('Sin acceso a cámara. Usa el campo manual.', 'am'); }
+}
+
+function stopCam() {
+  if (stream) { stream.getTracks().forEach(t=>t.stop()); stream=null; }
+  if (scanInterval) { clearInterval(scanInterval); scanInterval=null; }
+  document.getElementById('preview').srcObject = null;
+  document.getElementById('camIdle').style.display = 'flex';
+  document.getElementById('camOverlay').style.display = 'none';
+  document.getElementById('btnCamTxt').textContent = 'Activar cámara';
+  document.getElementById('btnCam').className = 'btn-cam off';
+  isScanning = false;
+}
+
+function startDetection() {
+  if (!('BarcodeDetector' in window)) {
+    toast('Navegador sin detección nativa. Usa el campo manual.', 'am'); return;
+  }
+  const det = new BarcodeDetector({formats:['code_128','code_39','ean_13','ean_8','qr_code','data_matrix']});
+  const v = document.getElementById('preview');
+  let last = '', lastT = 0;
+  scanInterval = setInterval(async () => {
+    if (!isScanning || v.readyState < 2) return;
+    try {
+      const barcodes = await det.detect(v);
+      if (!barcodes.length) return;
+      const raw = barcodes[0].rawValue.trim().toUpperCase();
+      const now = Date.now();
+      if (raw === last && now - lastT < 2500) return;
+      last = raw; lastT = now;
+      processScan(raw);
+    } catch(e){}
+  }, 400);
+}
+
+// ─── PROCESS ─────────────────────────────────────────────────────────
+window.processManual = function() {
+  const v = document.getElementById('mInput').value.trim().toUpperCase();
+  if (v) { processScan(v); document.getElementById('mInput').value=''; }
+};
+document.addEventListener('DOMContentLoaded', () => {
+  document.getElementById('mInput').addEventListener('keydown', e => { if(e.key==='Enter') window.processManual(); });
+});
+
+async function processScan(raw) {
+  if (sessionClosed) { toast('Sesión cerrada', 'am'); return; }
+  const serie = raw.trim().toUpperCase();
+  const now = new Date();
+  const timeStr = now.toLocaleTimeString('es-PE',{hour:'2-digit',minute:'2-digit',second:'2-digit'});
+
+  setSyncState('wait', 'Procesando...');
+
+  if (scanned[serie]) {
+    toast('⚠ Duplicado: ' + serie, 'am');
+    addLog(serie, 'rd', 'Duplicado · ya escaneado', timeStr, '⚠');
+    setSyncState('ok', 'Listo');
+    return;
+  }
+
+  let estadoFisico, dotClass, toastType, statusMsg, cloudIcon;
+
+  const estadoSis = SERIES[serie];
+  if (estadoSis === 'DISPONIBLE') {
+    estadoFisico='confirmada'; dotClass='gr'; toastType='ok';
+    statusMsg='Confirmada · DISPONIBLE en sistema'; cloudIcon='☁';
+  } else if (estadoSis === 'DESPACHADO') {
+    estadoFisico='confirmada'; dotClass='am'; toastType='am';
+    statusMsg='⚠ Atención · sistema dice DESPACHADO'; cloudIcon='⚠';
+  } else {
+    estadoFisico='encontrada_nueva'; dotClass='cy'; toastType='cy';
+    statusMsg='Nueva · no registrada en sistema'; cloudIcon='✦';
+  }
+
+  scanned[serie] = { serie, estado_fisico: estadoFisico, estado_sistema: estadoSis||'NO_REGISTRADA', ts: now.toISOString(), timeStr };
+
+  toast(estadoFisico==='confirmada' ? '✓ ' + serie : (estadoFisico==='encontrada_nueva' ? '+ Nueva: '+serie : '⚠ '+serie), toastType);
+  addLog(serie, dotClass, statusMsg, timeStr, cloudIcon);
+  updateStats();
+
+  // Save to Firebase
+  if (!offline && db) {
+    try {
+      await setDoc(doc(db, 'sesiones', sessionId, 'registros', serie), {
+        serie, sku:'10000532',
+        estado_sistema: estadoSis||'NO_REGISTRADA',
+        estado_fisico: estadoFisico,
+        timestamp: now.toISOString(),
+        sesion_id: sessionId
+      });
+      // Update session summary
+      const conf = Object.values(scanned).filter(v=>v.estado_fisico==='confirmada').length;
+      const nuevas = Object.values(scanned).filter(v=>v.estado_fisico==='encontrada_nueva').length;
+      const pend = Math.max(0, Object.keys(DISPONIBLES).length - conf);
+      await updateDoc(doc(db,'sesiones',sessionId), {
+        total_confirmadas: conf, total_nuevas: nuevas,
+        total_pendientes: pend, ultimo_escaneo: now.toISOString()
+      });
+      setSyncState('ok', '☁ Guardado en Firebase');
+      setTimeout(()=>setSyncState('ok','Listo para escanear'),2000);
+    } catch(e) {
+      setSyncState('err', 'Error al guardar');
+      toast('Sin conexión, guardado local', 'am');
+    }
+  } else {
+    setSyncState('ok', 'Guardado localmente');
+    setTimeout(()=>setSyncState('ok','Listo para escanear'),1500);
+  }
+}
+
+// ─── LOG ─────────────────────────────────────────────────────────────
+function addLog(serie, dot, status, time, icon) {
+  document.getElementById('logEmpty').style.display = 'none';
+  const el = document.createElement('div');
+  el.className = 'li';
+  el.innerHTML = `<div class="ld ${dot}"></div><div class="li-info"><div class="li-serie">${serie}</div><div class="li-status">${status}</div></div><div class="li-cloud">${icon||''}</div><div class="li-time">${time}</div>`;
+  document.getElementById('logList').prepend(el);
+}
+
+// ─── SYNC STATUS ─────────────────────────────────────────────────────
+function setSyncState(state, label) {
+  const dot = document.getElementById('syncDot');
+  dot.className = 'sync-dot ' + state;
+  document.getElementById('syncLabel').textContent = label;
+}
+
+// ─── STATS ───────────────────────────────────────────────────────────
+function updateStats() {
+  const vals = Object.values(scanned);
+  const conf = vals.filter(v=>v.estado_fisico==='confirmada').length;
+  const nuevas = vals.filter(v=>v.estado_fisico==='encontrada_nueva').length;
+  const pend = Math.max(0, Object.keys(DISPONIBLES).length - conf);
+  const total = vals.length;
+  ['stC','rC'].forEach(id=>document.getElementById(id).textContent=conf);
+  ['stN','rN'].forEach(id=>document.getElementById(id).textContent=nuevas);
+  ['stP','rP'].forEach(id=>document.getElementById(id).textContent=pend);
+  document.getElementById('stT').textContent=total;
+}
+
+// ─── REPORT ──────────────────────────────────────────────────────────
+window.filterR = function(f, btn) {
+  currentFilter = f;
+  document.querySelectorAll('.stab').forEach(b=>b.classList.remove('active'));
+  btn.classList.add('active');
+  renderReport(f);
+};
+
+function renderReport(filter) {
+  const list = document.getElementById('rList');
+  const all = [];
+
+  Object.keys(DISPONIBLES).forEach(serie => {
+    const sc = scanned[serie];
+    let estado;
+    if (sc) {
+      estado = sc.estado_sistema === 'DESPACHADO' ? 'atención' : sc.estado_fisico;
+    } else {
+      estado = sessionClosed ? 'fantasma' : 'pendiente';
+    }
+    all.push({ serie, estado });
+  });
+  Object.entries(scanned).filter(([,v])=>v.estado_fisico==='encontrada_nueva').forEach(([serie])=>{
+    all.push({serie, estado:'encontrada_nueva'});
+  });
+
+  const filtered = filter==='all' ? all : all.filter(s=>s.estado===filter);
+
+  const fantasmas = all.filter(s=>s.estado==='fantasma').length;
+  document.getElementById('rF').textContent = fantasmas;
+
+  if (!filtered.length) {
+    list.innerHTML='<div style="padding:20px;text-align:center;color:var(--mt);font-size:12px">Sin resultados</div>';
+    return;
+  }
+
+  const map = {confirmada:['bk','Confirmada'],encontrada_nueva:['bn','Nueva'],
+    fantasma:['bg','Fantasma'],pendiente:['bp','Pendiente'],atención:['ba','Atención']};
+
+  list.innerHTML = filtered.map(s=>{
+    const [cls,lbl] = map[s.estado]||['bp','Pendiente'];
+    return `<div class="rrow"><span class="rserie">${s.serie}</span><span class="rbadge ${cls}">${lbl}</span></div>`;
+  }).join('');
+}
+
+// ─── CLOSE SESSION ────────────────────────────────────────────────────
+window.closeSession = async function() {
+  if (sessionClosed) { toast('Sesión ya cerrada','am'); return; }
+  if (!confirm('¿Cerrar sesión? Las series no encontradas quedarán como FANTASMAS.')) return;
+  sessionClosed = true;
+  stopCam();
+
+  const fantasmas = Object.keys(DISPONIBLES).filter(s=>!scanned[s]).map(serie=>({
+    serie, sku:'10000532', estado_sistema:'DISPONIBLE', estado_fisico:'fantasma',
+    timestamp: new Date().toISOString(), sesion_id: sessionId
+  }));
+
+  if (!offline && db) {
+    try {
+      for (const f of fantasmas) {
+        await setDoc(doc(db,'sesiones',sessionId,'registros',f.serie), f);
+      }
+      await updateDoc(doc(db,'sesiones',sessionId), {
+        estado:'cerrada', fecha_cierre: new Date().toISOString(),
+        total_fantasmas: fantasmas.length
+      });
+      toast(`Sesión cerrada · ${fantasmas.length} fantasmas guardados en Firebase`, 'cy');
+    } catch(e) { toast('Sesión cerrada localmente', 'am'); }
+  } else {
+    toast(`Sesión cerrada · ${fantasmas.length} fantasmas`, 'cy');
+  }
+
+  document.querySelector('.live-dot span').style.background='var(--rd)';
+  document.querySelector('.live-dot span').style.animation='none';
+  document.getElementById('liveLabel').textContent='Sesión cerrada';
+  renderReport(currentFilter);
+  updateStats();
+};
+
+// ─── EXPORT ──────────────────────────────────────────────────────────
+window.exportCSV = function() {
+  const rows=[['serie','sku','estado_sistema','estado_fisico','timestamp','sesion_id']];
+  Object.keys(DISPONIBLES).forEach(serie=>{
+    const sc=scanned[serie];
+    const ef = sc ? sc.estado_fisico : (sessionClosed?'fantasma':'pendiente');
+    rows.push([serie,'10000532','DISPONIBLE',ef,sc?sc.ts:'',sessionId]);
+  });
+  Object.entries(scanned).filter(([,v])=>v.estado_fisico==='encontrada_nueva').forEach(([serie,v])=>{
+    rows.push([serie,'10000532','NO_REGISTRADA','encontrada_nueva',v.ts,sessionId]);
+  });
+  const csv=rows.map(r=>r.map(c=>`"${c}"`).join(',')).join('\n');
+  const a=document.createElement('a');
+  a.href=URL.createObjectURL(new Blob([csv],{type:'text/csv'}));
+  a.download=`inventario_${sessionId}.csv`; a.click();
+  toast('CSV exportado','ok');
+};
+
+window.copyFirebaseURL = function() {
+  if (!fbProjectId) { toast('No hay Firebase conectado','am'); return; }
+  const url=`https://console.firebase.google.com/project/${fbProjectId}/firestore`;
+  window.open(url,'_blank');
+};
+
+// ─── TOAST ───────────────────────────────────────────────────────────
+let tTimer=null;
+function toast(msg,type='ok'){
+  const t=document.getElementById('toast');
+  t.textContent=msg; t.className=`toast ${type} show`;
+  if(tTimer) clearTimeout(tTimer);
+  tTimer=setTimeout(()=>t.classList.remove('show'),2800);
+}
+window.toast=toast;
+</script>
+</body>
+</html>
